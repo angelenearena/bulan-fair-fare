@@ -60,11 +60,18 @@ export interface OverchargingReport {
 
 export type SectorType = "regular" | "student" | "senior" | "pwd";
 
+/**
+ * Official discount rates per Municipal Ordinance No. 2022-21
+ * and applicable Republic Acts:
+ * - Senior Citizens: 20% (RA 9994)
+ * - Students: 20% (RA 11314)
+ * - PWD: 20% (RA 10754)
+ */
 export const SECTOR_DISCOUNTS: Record<SectorType, number> = {
   regular: 0,
-  student: 0.15,
-  senior: 0.2,
-  pwd: 0.25,
+  student: 0.20,
+  senior: 0.20,
+  pwd: 0.20,
 };
 
 export const SECTOR_LABELS: Record<SectorType, string> = {
@@ -72,4 +79,11 @@ export const SECTOR_LABELS: Record<SectorType, string> = {
   student: "Student",
   senior: "Senior Citizen",
   pwd: "PWD",
+};
+
+export const SECTOR_RA: Record<SectorType, string> = {
+  regular: "",
+  student: "RA 11314",
+  senior: "RA 9994",
+  pwd: "RA 10754",
 };

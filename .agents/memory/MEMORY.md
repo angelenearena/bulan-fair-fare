@@ -1,0 +1,1 @@
+- [Bulan FairFare project](bulan-fairfare.md) — Expo SDK 54 + Firebase app; key decisions on tariff data, discounts, seeding, and APK build config.

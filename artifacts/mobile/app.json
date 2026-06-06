@@ -1,11 +1,11 @@
 {
   "expo": {
     "name": "Bulan FairFare",
-    "slug": "mobile",
+    "slug": "bulan-fairfare",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "mobile",
+    "scheme": "bulanfairfare",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "splash": {
@@ -14,21 +14,23 @@
       "backgroundColor": "#0a0a0a"
     },
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "bundleIdentifier": "ph.gov.bulan.fairfare"
     },
     "android": {
-      "backgroundColor": "#0a0a0a"
+      "package": "ph.gov.bulan.fairfare",
+      "backgroundColor": "#0a0a0a",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/icon.png",
+        "backgroundColor": "#0a0a0a"
+      }
     },
     "web": {
-      "favicon": "./assets/images/icon.png"
+      "favicon": "./assets/images/icon.png",
+      "bundler": "metro"
     },
     "plugins": [
-      [
-        "expo-router",
-        {
-          "origin": "https://replit.com/"
-        }
-      ],
+      "expo-router",
       "expo-font",
       "expo-web-browser"
     ],

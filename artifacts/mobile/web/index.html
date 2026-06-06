@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, shrink-to-fit=no"
+    />
+    <title>Bulan FairFare</title>
+    <meta name="description" content="Official Bulan tricycle fare transparency app" />
+    <style>
+      html, body, #root {
+        width: 100%;
+        height: 100%;
+        background-color: #0a0a0a;
+        overflow: hidden;
+      }
+      /* Hide development overlays */
+      [data-testid="replit-badge"],
+      .replit-badge,
+      a[href*="replit.com"]:not([href*="replit.dev"]),
+      div[style*="position: fixed"][style*="bottom"]:has(img[src*="replit"]),
+      iframe[src*="replit.com/badge"] {
+        display: none !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+      }
+    </style>
+    <script>
+      // Remove any Replit development badges injected into the page
+      function removeBadges() {
+        const selectors = [
+          '[data-testid="replit-badge"]',
+          '.replit-badge',
+          'a[href*="replit.com/~"]',
+        ];
+        selectors.forEach(sel => {
+          document.querySelectorAll(sel).forEach(el => el.remove());
+        });
+        // Also look for fixed-positioned elements with Replit content
+        document.querySelectorAll('div[style*="fixed"]').forEach(el => {
+          if (el.innerHTML.toLowerCase().includes('replit') && el.innerHTML.toLowerCase().includes('made')) {
+            el.style.display = 'none';
+          }
+        });
+      }
+      window.addEventListener('DOMContentLoaded', removeBadges);
+      // Poll for dynamically injected badges
+      const badgeObserver = new MutationObserver(removeBadges);
+      window.addEventListener('DOMContentLoaded', () => {
+        badgeObserver.observe(document.body, { childList: true, subtree: true });
+      });
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

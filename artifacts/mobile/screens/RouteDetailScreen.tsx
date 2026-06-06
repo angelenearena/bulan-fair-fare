@@ -15,7 +15,7 @@ import * as Haptics from "expo-haptics";
 import { useColors } from "../hooks/useColors";
 import { getTariffById } from "../services/tariffs";
 import { getSettings } from "../services/settings";
-import { Tariff, GlobalSettings, SectorType, SECTOR_DISCOUNTS, SECTOR_LABELS } from "../types";
+import { Tariff, GlobalSettings, SectorType, SECTOR_DISCOUNTS, SECTOR_LABELS, SECTOR_RA } from "../types";
 import { Button } from "../components/Button";
 
 const SECTORS: SectorType[] = ["regular", "student", "senior", "pwd"];
@@ -334,6 +334,11 @@ export function RouteDetailScreen() {
               <Text style={[s.sectorDiscount, selectedSector === sector && s.sectorDiscountActive]}>
                 {SECTOR_DISCOUNTS[sector] > 0 ? `-${(SECTOR_DISCOUNTS[sector] * 100).toFixed(0)}%` : "Full"}
               </Text>
+              {SECTOR_RA[sector] ? (
+                <Text style={{ color: selectedSector === sector ? colors.pinkLight : colors.mutedForeground, fontSize: 9, fontFamily: "Inter_400Regular" }}>
+                  {SECTOR_RA[sector]}
+                </Text>
+              ) : null}
             </TouchableOpacity>
           ))}
         </View>
@@ -411,6 +416,19 @@ export function RouteDetailScreen() {
             <Text style={s.descText}>{tariff.description}</Text>
           </>
         ) : null}
+
+        <Text style={s.sectionTitle}>Legal Basis</Text>
+        <View style={{ backgroundColor: colors.card, borderRadius: colors.radius, padding: 14, borderWidth: 1, borderColor: colors.border }}>
+          <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, lineHeight: 18, marginBottom: 6 }}>
+            Municipal Ordinance No. 2022-21 — Official tricycle fare matrix from Bulan Poblacion to barangays and vice versa.
+          </Text>
+          <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, lineHeight: 17 }}>
+            • Senior Citizen 20% discount — RA 9994{"\n"}
+            • Student 20% discount — RA 11314{"\n"}
+            • PWD 20% discount — RA 10754{"\n"}
+            • Pre-school students — Free (Section 5(d)(e) of the Ordinance)
+          </Text>
+        </View>
       </ScrollView>
     </View>
   );

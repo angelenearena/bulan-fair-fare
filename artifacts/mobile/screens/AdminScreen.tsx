@@ -18,6 +18,7 @@ import { useAuthContext } from "../context/AuthContext";
 import { subscribeToAllReports, updateReportStatus, archiveReport } from "../services/reports";
 import { getSettings, updateSettings } from "../services/settings";
 import { createTariff, getTariffs, deleteTariff } from "../services/tariffs";
+import { seedTariffs } from "../services/seedData";
 import { OverchargingReport, GlobalSettings, Tariff } from "../types";
 import { Button } from "../components/Button";
 import { ReportItemSkeleton } from "../components/LoadingSkeleton";
@@ -49,6 +50,8 @@ export function AdminScreen() {
   const [minFare, setMinFare] = useState("");
   const [fuelIndex, setFuelIndex] = useState("");
   const [savingSettings, setSavingSettings] = useState(false);
+  const [seeding, setSeeding] = useState(false);
+  const [seedLog, setSeedLog] = useState("");
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
 
@@ -87,6 +90,33 @@ export function AdminScreen() {
         },
       },
     ]);
+  }
+
+  async function handleSeedData() {
+    Alert.alert(
+      "Load Official Tariff Data",
+      "This will replace ALL existing tariff routes with the 56 official routes from Municipal Ordinance No. 2022-21. Continue?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Load Data",
+          onPress: async () => {
+            setSeeding(true);
+            setSeedLog("Starting...");
+            try {
+              const count = await seedTariffs((msg) => setSeedLog(msg));
+              getTariffs().then(setTariffs);
+              Alert.alert("Success", `${count} official routes loaded from Municipal Ordinance No. 2022-21.`);
+            } catch (e: any) {
+              Alert.alert("Error", `Seeding failed: ${e?.message ?? "Unknown error"}`);
+            } finally {
+              setSeeding(false);
+              setSeedLog("");
+            }
+          },
+        },
+      ]
+    );
   }
 
   async function handleSaveSettings() {
@@ -415,9 +445,31 @@ export function AdminScreen() {
           keyExtractor={(item) => item.id}
           contentContainerStyle={s.listContent}
           ListHeaderComponent={
-            <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, marginBottom: 12 }}>
-              {tariffs.length} routes in database
-            </Text>
+            <View style={{ marginBottom: 12 }}>
+              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, marginBottom: 12 }}>
+                {tariffs.length} route{tariffs.length !== 1 ? "s" : ""} in database
+              </Text>
+              <View style={{ backgroundColor: colors.pinkMuted, borderRadius: 10, padding: 12, marginBottom: 4 }}>
+                <Text style={{ color: colors.pink, fontFamily: "Inter_600SemiBold", fontSize: 13, marginBottom: 4 }}>
+                  Official Tariff Data (Municipal Ordinance No. 2022-21)
+                </Text>
+                <Text style={{ color: colors.pink, fontFamily: "Inter_400Regular", fontSize: 12, marginBottom: 10, lineHeight: 17 }}>
+                  Load all 56 official Bulan tricycle routes. Fares based on ₱60.00–₱69.00 fuel range. Student/Senior/PWD discounts: 20%.
+                </Text>
+                {!!seedLog && (
+                  <Text style={{ color: colors.pink, fontFamily: "Inter_400Regular", fontSize: 11, marginBottom: 8 }}>
+                    {seedLog}
+                  </Text>
+                )}
+                <Button
+                  label={seeding ? "Loading data..." : "Load Official Routes"}
+                  onPress={handleSeedData}
+                  loading={seeding}
+                  variant="primary"
+                  size="sm"
+                />
+              </View>
+            </View>
           }
           ListEmptyComponent={
             <View style={{ alignItems: "center", paddingTop: 40 }}>
