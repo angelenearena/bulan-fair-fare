@@ -31,8 +31,14 @@ export function ProfileScreen() {
         text: "Sign Out",
         style: "destructive",
         onPress: async () => {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-          await signOut();
+          try {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            await signOut();
+            // Keep the user on the Profile tab — Expo Router on web resets to first tab otherwise
+            router.replace("/(tabs)/profile" as never);
+          } catch {
+            Alert.alert("Error", "Failed to sign out. Please try again.");
+          }
         },
       },
     ]);

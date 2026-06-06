@@ -72,16 +72,20 @@ export function subscribeToAllReports(callback: (reports: OverchargingReport[]) 
     where("is_archived", "==", false),
     orderBy("createdAt", "desc")
   );
-  return onSnapshot(q, (snapshot) => {
-    const reports = snapshot.docs.map((d) => ({
-      id: d.id,
-      ...d.data(),
-      createdAt: d.data().createdAt?.toDate() ?? new Date(),
-      updatedAt: d.data().updatedAt?.toDate() ?? new Date(),
-      incident_date: d.data().incident_date?.toDate() ?? new Date(),
-    })) as OverchargingReport[];
-    callback(reports);
-  });
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const reports = snapshot.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+        createdAt: d.data().createdAt?.toDate() ?? new Date(),
+        updatedAt: d.data().updatedAt?.toDate() ?? new Date(),
+        incident_date: d.data().incident_date?.toDate() ?? new Date(),
+      })) as OverchargingReport[];
+      callback(reports);
+    },
+    () => { /* silently ignore permission errors during sign-out race */ }
+  );
 }
 
 export function subscribeToMyReports(userId: string, callback: (reports: OverchargingReport[]) => void): Unsubscribe {
@@ -91,16 +95,20 @@ export function subscribeToMyReports(userId: string, callback: (reports: Overcha
     where("is_archived", "==", false),
     orderBy("createdAt", "desc")
   );
-  return onSnapshot(q, (snapshot) => {
-    const reports = snapshot.docs.map((d) => ({
-      id: d.id,
-      ...d.data(),
-      createdAt: d.data().createdAt?.toDate() ?? new Date(),
-      updatedAt: d.data().updatedAt?.toDate() ?? new Date(),
-      incident_date: d.data().incident_date?.toDate() ?? new Date(),
-    })) as OverchargingReport[];
-    callback(reports);
-  });
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const reports = snapshot.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+        createdAt: d.data().createdAt?.toDate() ?? new Date(),
+        updatedAt: d.data().updatedAt?.toDate() ?? new Date(),
+        incident_date: d.data().incident_date?.toDate() ?? new Date(),
+      })) as OverchargingReport[];
+      callback(reports);
+    },
+    () => { /* silently ignore permission errors during sign-out race */ }
+  );
 }
 
 export async function createReport(

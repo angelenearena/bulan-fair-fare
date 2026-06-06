@@ -1,5 +1,10 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { initializeAuth, getAuth, getReactNativePersistence } from "firebase/auth";
+import {
+  initializeAuth,
+  getAuth,
+  getReactNativePersistence,
+  browserLocalPersistence,
+} from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { Platform } from "react-native";
 
@@ -15,15 +20,22 @@ const firebaseConfig = {
 export const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
 function buildAuth() {
+  // If already initialised (e.g. hot-reload), just reuse the existing instance
   if (getApps().length > 1) return getAuth(app);
-  if (Platform.OS === "web") return getAuth(app);
+
   try {
+    if (Platform.OS === "web") {
+      // Web: use browser localStorage so the session survives page reloads
+      return initializeAuth(app, { persistence: browserLocalPersistence });
+    }
+    // Native: use AsyncStorage for cross-session persistence
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const AsyncStorage = require("@react-native-async-storage/async-storage").default;
     return initializeAuth(app, {
       persistence: getReactNativePersistence(AsyncStorage),
     });
   } catch {
+    // Fall back to default (memory) persistence if anything goes wrong
     return getAuth(app);
   }
 }
