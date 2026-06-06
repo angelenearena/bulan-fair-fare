@@ -1,1 +1,3 @@
 - [Bulan FairFare project](bulan-fairfare.md) — Expo SDK 54 + Firebase app; key decisions on tariff data, discounts, seeding, and APK build config.
+- [Firestore compound query indexes](firestore-compound-queries.md) — compound where+orderBy requires composite indexes; use single where and sort in JS to avoid index creation
+- [Firebase Auth persistence](firebase-auth-persistence.md) — web needs browserLocalPersistence, native needs getReactNativePersistence(AsyncStorage); detect with Platform.OS

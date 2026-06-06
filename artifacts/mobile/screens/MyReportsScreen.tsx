@@ -27,11 +27,22 @@ export function MyReportsScreen() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) return;
-    const unsub = subscribeToMyReports(user.uid, (data) => {
-      setReports(data);
+    if (!user) {
       setLoading(false);
-    });
+      return;
+    }
+    setLoading(true);
+    const unsub = subscribeToMyReports(
+      user.uid,
+      (data) => {
+        setReports(data);
+        setLoading(false);
+      },
+      () => {
+        // On error (e.g. permission denied after sign-out), stop loading
+        setLoading(false);
+      }
+    );
     return unsub;
   }, [user]);
 

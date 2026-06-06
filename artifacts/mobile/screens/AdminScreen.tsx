@@ -56,18 +56,27 @@ export function AdminScreen() {
   const topPad = Platform.OS === "web" ? 67 : insets.top;
 
   useEffect(() => {
-    const unsub = subscribeToAllReports((data) => {
-      setReports(data);
-      setLoading(false);
-    });
-    getTariffs().then(setTariffs).catch(console.error);
-    getSettings().then((s) => {
-      setSettings(s);
-      setBaseFare(s.base_fare.toString());
-      setPerKmRate(s.per_km_rate.toString());
-      setMinFare(s.minimum_fare.toString());
-      setFuelIndex(s.fuel_price_index.toString());
-    });
+    setLoading(true);
+    const unsub = subscribeToAllReports(
+      (data) => {
+        setReports(data);
+        setLoading(false);
+      },
+      () => {
+        // On error, stop loading so UI doesn't freeze
+        setLoading(false);
+      }
+    );
+    getTariffs().then(setTariffs).catch(() => null);
+    getSettings()
+      .then((s) => {
+        setSettings(s);
+        setBaseFare(s.base_fare.toString());
+        setPerKmRate(s.per_km_rate.toString());
+        setMinFare(s.minimum_fare.toString());
+        setFuelIndex(s.fuel_price_index.toString());
+      })
+      .catch(() => null);
     return unsub;
   }, []);
 

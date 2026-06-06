@@ -6,7 +6,6 @@ import {
   doc,
   query,
   where,
-  orderBy,
   onSnapshot,
   serverTimestamp,
   Unsubscribe,
@@ -20,9 +19,9 @@ function autoTag(description: string): AITag[] {
   const text = description.toLowerCase();
   const tags: AITag[] = [];
 
-  const overchargeKW = ["overcharge", "singil", "mahal", "sobra", "bayad", "dagdag"];
-  const misconductKW = ["bastos", "away", "rude", "insulto", "galit", "bwisit", "masamang"];
-  const recklessKW = ["mabilis", "harurot", "dangerous", "delikado", "bilis", "overspeeding"];
+  const overchargeKW = ["overcharge", "singil", "mahal", "sobra", "bayad", "dagdag", "charge", "bayaran"];
+  const misconductKW = ["bastos", "away", "rude", "insulto", "galit", "bwisit", "masamang", "rude", "bad behavior", "behavior"];
+  const recklessKW = ["mabilis", "harurot", "dangerous", "delikado", "bilis", "overspeeding", "fast", "racing", "ligaw"];
 
   if (overchargeKW.some((kw) => text.includes(kw))) tags.push("Fare Overcharge");
   if (misconductKW.some((kw) => text.includes(kw))) tags.push("Driver Misconduct");
@@ -33,81 +32,74 @@ function autoTag(description: string): AITag[] {
   return tags;
 }
 
-export async function getMyReports(userId: string): Promise<OverchargingReport[]> {
-  const q = query(
-    collection(db, COLLECTION),
-    where("user_id", "==", userId),
-    where("is_archived", "==", false),
-    orderBy("createdAt", "desc")
-  );
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map((d) => ({
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapDoc(d: any): OverchargingReport {
+  const data = d.data();
+  return {
     id: d.id,
-    ...d.data(),
-    createdAt: d.data().createdAt?.toDate() ?? new Date(),
-    updatedAt: d.data().updatedAt?.toDate() ?? new Date(),
-    incident_date: d.data().incident_date?.toDate() ?? new Date(),
-  })) as OverchargingReport[];
+    ...data,
+    createdAt: data.createdAt?.toDate() ?? new Date(),
+    updatedAt: data.updatedAt?.toDate() ?? new Date(),
+    incident_date: data.incident_date?.toDate
+      ? data.incident_date.toDate()
+      : new Date(data.incident_date ?? Date.now()),
+  } as OverchargingReport;
+}
+
+function sortByDate(reports: OverchargingReport[]): OverchargingReport[] {
+  return [...reports].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+}
+
+export async function getMyReports(userId: string): Promise<OverchargingReport[]> {
+  // Single where clause — no composite index needed
+  const q = query(collection(db, COLLECTION), where("user_id", "==", userId));
+  const snapshot = await getDocs(q);
+  const all = snapshot.docs.map(mapDoc);
+  return sortByDate(all.filter((r) => !r.is_archived));
 }
 
 export async function getAllReports(): Promise<OverchargingReport[]> {
-  const q = query(
-    collection(db, COLLECTION),
-    where("is_archived", "==", false),
-    orderBy("createdAt", "desc")
-  );
+  // Single where clause — no composite index needed
+  const q = query(collection(db, COLLECTION), where("is_archived", "==", false));
   const snapshot = await getDocs(q);
-  return snapshot.docs.map((d) => ({
-    id: d.id,
-    ...d.data(),
-    createdAt: d.data().createdAt?.toDate() ?? new Date(),
-    updatedAt: d.data().updatedAt?.toDate() ?? new Date(),
-    incident_date: d.data().incident_date?.toDate() ?? new Date(),
-  })) as OverchargingReport[];
+  return sortByDate(snapshot.docs.map(mapDoc));
 }
 
-export function subscribeToAllReports(callback: (reports: OverchargingReport[]) => void): Unsubscribe {
-  const q = query(
-    collection(db, COLLECTION),
-    where("is_archived", "==", false),
-    orderBy("createdAt", "desc")
-  );
+export function subscribeToAllReports(
+  callback: (reports: OverchargingReport[]) => void,
+  onError?: (err: Error) => void
+): Unsubscribe {
+  // Single where clause avoids composite index requirement
+  const q = query(collection(db, COLLECTION), where("is_archived", "==", false));
   return onSnapshot(
     q,
     (snapshot) => {
-      const reports = snapshot.docs.map((d) => ({
-        id: d.id,
-        ...d.data(),
-        createdAt: d.data().createdAt?.toDate() ?? new Date(),
-        updatedAt: d.data().updatedAt?.toDate() ?? new Date(),
-        incident_date: d.data().incident_date?.toDate() ?? new Date(),
-      })) as OverchargingReport[];
+      const reports = sortByDate(snapshot.docs.map(mapDoc));
       callback(reports);
     },
-    () => { /* silently ignore permission errors during sign-out race */ }
+    (error) => {
+      if (onError) onError(error);
+    }
   );
 }
 
-export function subscribeToMyReports(userId: string, callback: (reports: OverchargingReport[]) => void): Unsubscribe {
-  const q = query(
-    collection(db, COLLECTION),
-    where("user_id", "==", userId),
-    where("is_archived", "==", false),
-    orderBy("createdAt", "desc")
-  );
+export function subscribeToMyReports(
+  userId: string,
+  callback: (reports: OverchargingReport[]) => void,
+  onError?: (err: Error) => void
+): Unsubscribe {
+  // Single where clause avoids composite index requirement; filter archived in JS
+  const q = query(collection(db, COLLECTION), where("user_id", "==", userId));
   return onSnapshot(
     q,
     (snapshot) => {
-      const reports = snapshot.docs.map((d) => ({
-        id: d.id,
-        ...d.data(),
-        createdAt: d.data().createdAt?.toDate() ?? new Date(),
-        updatedAt: d.data().updatedAt?.toDate() ?? new Date(),
-        incident_date: d.data().incident_date?.toDate() ?? new Date(),
-      })) as OverchargingReport[];
-      callback(reports);
+      const all = snapshot.docs.map(mapDoc);
+      const active = sortByDate(all.filter((r) => !r.is_archived));
+      callback(active);
     },
-    () => { /* silently ignore permission errors during sign-out race */ }
+    (error) => {
+      if (onError) onError(error);
+    }
   );
 }
 
