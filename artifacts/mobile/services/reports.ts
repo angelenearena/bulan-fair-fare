@@ -107,7 +107,7 @@ export async function createReport(
   data: Omit<OverchargingReport, "id" | "ai_tags" | "status" | "is_archived" | "createdAt" | "updatedAt">
 ): Promise<string> {
   const ai_tags = autoTag(data.description);
-  const ref = await addDoc(collection(db, COLLECTION), {
+  const payload: Record<string, unknown> = {
     ...data,
     ai_tags,
     status: "Pending",
@@ -115,7 +115,11 @@ export async function createReport(
     incident_date: data.incident_date,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
-  });
+  };
+  if (data.evidence_url) {
+    payload.evidence_url = data.evidence_url;
+  }
+  const ref = await addDoc(collection(db, COLLECTION), payload);
   return ref.id;
 }
 

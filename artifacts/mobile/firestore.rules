@@ -1,0 +1,38 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper: check if the requesting user is an admin
+    function isAdmin() {
+      return request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Tariffs — public read (no login needed), admin-only write
+    match /tariffs/{tariffId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Global Settings — public read, admin-only write
+    match /global_settings/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Users — each user can read/write their own profile; admin can read all
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read: if isAdmin();
+    }
+
+    // Overcharging Reports — authenticated create; commuter can read own; admin has full access
+    match /overcharging_reports/{reportId} {
+      allow create: if request.auth != null;
+      allow read, update: if request.auth != null && (
+        resource.data.user_id == request.auth.uid || isAdmin()
+      );
+      allow delete: if false;
+    }
+  }
+}

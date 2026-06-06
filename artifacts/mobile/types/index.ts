@@ -54,6 +54,7 @@ export interface OverchargingReport {
   status: ReportStatus;
   is_archived: boolean;
   incident_date: Date;
+  evidence_url?: string;
   createdAt: Date;
   updatedAt: Date;
 }
