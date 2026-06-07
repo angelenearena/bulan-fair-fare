@@ -34,3 +34,27 @@ Build command: `eas build --platform android --profile preview`
 ## app.json
 Expo Router origin reference to Replit was removed from app.json for production cleanliness.
 slug changed from "mobile" to "bulan-fairfare" for proper branding.
+
+## VS Code readiness (as of 2026-06-07)
+- `tsconfig.json` uses `"ignoreDeprecations": "5.0"` to suppress baseUrl deprecation warning
+- `.vscode/settings.json` + `.vscode/extensions.json` committed inside `artifacts/mobile/`
+- `.env.example` template for Firebase env vars
+- `SETUP.md` — full local dev + Firebase CLI deploy guide
+
+## Firebase CLI files (artifacts/mobile/)
+- `firebase.json` — points rules/indexes to local files
+- `firestore.indexes.json` — composite indexes for overcharging_reports queries
+- `.firebaserc` — project alias → `bulan-fair-fare`
+- Deploy: `firebase deploy --only firestore:rules,firestore:indexes,storage`
+
+## Tariff ID mapping bug fix
+Always place `id: d.id` AFTER the spread `...d.data()` in Firestore map functions so document data fields
+cannot overwrite the Firestore document ID. `tariffs.ts` has a shared `mapTariff()` helper that enforces this.
+
+## Evidence upload non-blocking
+ReportScreen wraps evidence upload in try/catch; if Firebase Storage upload fails, report still submits to
+Firestore without `evidence_url`. Alert informs user if photo was dropped.
+
+## Home screen fare calculator
+"Quick Fare Lookup" collapsible card added above route list. Uses existing loaded tariffs state (no extra
+Firestore reads). Origin → filtered destination → shows all 4 fares + "View Full Breakdown" button.

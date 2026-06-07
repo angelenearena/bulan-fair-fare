@@ -9,7 +9,6 @@ import {
   Alert,
   Platform,
   Image,
-  ActivityIndicator,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -38,12 +37,11 @@ export function ReportScreen() {
   const [evidenceUri, setEvidenceUri] = useState<string | null>(null);
   const [evidenceBase64, setEvidenceBase64] = useState<string | null>(null);
   const [evidenceMime, setEvidenceMime] = useState<string>("image/jpeg");
-  const [uploadingEvidence, setUploadingEvidence] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [showTariffPicker, setShowTariffPicker] = useState(false);
 
   useEffect(() => {
-    getTariffs().then(setTariffs).catch(console.error);
+    getTariffs().then(setTariffs).catch(() => null);
   }, []);
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
@@ -51,11 +49,7 @@ export function ReportScreen() {
   async function pickFromCamera() {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== "granted") {
-      Alert.alert(
-        "Camera Permission Required",
-        "Please allow camera access to capture evidence photos.",
-        [{ text: "OK" }]
-      );
+      Alert.alert("Camera Permission Required", "Please allow camera access to capture evidence photos.");
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -77,11 +71,7 @@ export function ReportScreen() {
   async function pickFromGallery() {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
-      Alert.alert(
-        "Gallery Permission Required",
-        "Please allow photo library access to attach evidence.",
-        [{ text: "OK" }]
-      );
+      Alert.alert("Gallery Permission Required", "Please allow photo library access to attach evidence.");
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -114,43 +104,55 @@ export function ReportScreen() {
     ]);
   }
 
-  function showEvidenceOptions() {
-    Haptics.selectionAsync();
-    Alert.alert("Attach Evidence Photo", "Choose a source for your evidence photo:", [
-      { text: "Take Photo", onPress: pickFromCamera },
-      { text: "Choose from Gallery", onPress: pickFromGallery },
-      { text: "Cancel", style: "cancel" },
-    ]);
-  }
-
   async function handleSubmit() {
     if (!user) return;
-    if (!selectedTariff || !bodyNumber.trim() || !extortedFare || !description.trim()) {
-      Alert.alert("Incomplete Form", "Please fill in all required fields.");
+
+    if (!selectedTariff) {
+      Alert.alert("Select Route", "Please select the route where overcharging occurred.");
       return;
     }
+    if (!bodyNumber.trim()) {
+      Alert.alert("Body Number Required", "Please enter the tricycle body number.");
+      return;
+    }
+    if (!extortedFare || isNaN(parseFloat(extortedFare))) {
+      Alert.alert("Amount Required", "Please enter the amount you were charged.");
+      return;
+    }
+    if (!description.trim()) {
+      Alert.alert("Description Required", "Please briefly describe what happened.");
+      return;
+    }
+
     const extorted = parseFloat(extortedFare);
-    if (isNaN(extorted) || extorted <= 0) {
-      Alert.alert("Invalid Fare", "Please enter a valid fare amount.");
+    if (extorted <= 0) {
+      Alert.alert("Invalid Amount", "Please enter a valid fare amount.");
       return;
     }
     if (extorted <= selectedTariff.fares.regular) {
-      Alert.alert("No Overcharge", "The entered fare is not greater than the official regular fare.");
+      Alert.alert(
+        "No Overcharge Detected",
+        `The amount you entered (₱${extorted.toFixed(2)}) is not greater than the official regular fare (₱${selectedTariff.fares.regular.toFixed(2)}). If you believe you were overcharged, please enter the exact amount the driver demanded.`
+      );
       return;
     }
 
     setSubmitting(true);
     let evidence_url: string | undefined;
 
-    try {
-      if (evidenceBase64 && Platform.OS !== "web") {
-        setUploadingEvidence(true);
+    // Evidence upload is non-blocking — if it fails, the report still submits
+    if (evidenceBase64 && Platform.OS !== "web") {
+      try {
         const ext = evidenceMime.includes("png") ? "png" : "jpg";
         const filename = `evidence/reports/${user.uid}_${Date.now()}.${ext}`;
         evidence_url = await uploadBase64Image(evidenceBase64, evidenceMime, filename);
-        setUploadingEvidence(false);
+      } catch {
+        // Upload failed — report will submit without the photo
+        evidence_url = undefined;
       }
+    }
 
+    try {
       await createReport({
         user_id: user.uid,
         body_number: bodyNumber.trim(),
@@ -165,8 +167,12 @@ export function ReportScreen() {
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert(
-        "Report Submitted",
-        "Your overcharging report has been filed successfully. Our team will review it shortly.",
+        "Report Submitted ✓",
+        evidence_url
+          ? "Your overcharging report and evidence photo have been filed. Our team will review it shortly."
+          : evidenceBase64 && Platform.OS !== "web"
+          ? "Report filed. The evidence photo could not be uploaded — you can share it separately if needed."
+          : "Your overcharging report has been filed. Our team will review it shortly.",
         [
           {
             text: "OK",
@@ -181,11 +187,11 @@ export function ReportScreen() {
           },
         ]
       );
-    } catch (e: any) {
-      Alert.alert("Submission Failed", e?.message ?? "Failed to submit report. Please try again.");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to submit report. Please try again.";
+      Alert.alert("Submission Failed", msg);
     } finally {
       setSubmitting(false);
-      setUploadingEvidence(false);
     }
   }
 
@@ -278,14 +284,6 @@ export function ReportScreen() {
       fontSize: 12,
     },
     fareHintValue: { color: colors.pink, fontFamily: "Inter_600SemiBold" },
-
-    evidenceBox: {
-      backgroundColor: colors.card,
-      borderRadius: colors.radius,
-      borderWidth: 1,
-      borderColor: colors.border,
-      overflow: "hidden",
-    },
     evidenceActions: {
       flexDirection: "row",
       gap: 10,
@@ -307,24 +305,11 @@ export function ReportScreen() {
       fontFamily: "Inter_500Medium",
       fontSize: 13,
     },
-    evidencePreview: {
-      position: "relative",
-    },
+    evidencePreview: { position: "relative" },
     evidenceImage: {
       width: "100%",
       height: 180,
       borderRadius: colors.radius,
-    },
-    evidenceRemoveBtn: {
-      position: "absolute",
-      top: 8,
-      right: 8,
-      backgroundColor: "rgba(0,0,0,0.7)",
-      borderRadius: 20,
-      width: 32,
-      height: 32,
-      alignItems: "center",
-      justifyContent: "center",
     },
     evidenceLabel: {
       flexDirection: "row",
@@ -339,7 +324,14 @@ export function ReportScreen() {
       fontFamily: "Inter_500Medium",
       fontSize: 12,
     },
-
+    evidenceRemoveBtn: {
+      position: "absolute",
+      top: 8, right: 8,
+      backgroundColor: "rgba(0,0,0,0.7)",
+      borderRadius: 20,
+      width: 32, height: 32,
+      alignItems: "center", justifyContent: "center",
+    },
     pickerOverlay: {
       position: "absolute",
       top: 0, left: 0, right: 0, bottom: 0,
@@ -384,7 +376,6 @@ export function ReportScreen() {
       fontSize: 12,
       marginTop: 2,
     },
-    submitBtn: { marginTop: 24 },
   });
 
   if (isGuest) {
@@ -411,13 +402,6 @@ export function ReportScreen() {
     );
   }
 
-  const isLoading = submitting || uploadingEvidence;
-  const submitLabel = uploadingEvidence
-    ? "Uploading evidence..."
-    : submitting
-    ? "Submitting..."
-    : "Submit Report";
-
   return (
     <View style={s.container}>
       <View style={s.header}>
@@ -430,7 +414,7 @@ export function ReportScreen() {
         <Text style={[s.label, { marginTop: 0 }]}>
           Route <Text style={s.required}>*</Text>
         </Text>
-        <TouchableOpacity style={s.selectBtn} onPress={() => setShowTariffPicker(true)}>
+        <TouchableOpacity style={s.selectBtn} onPress={() => setShowTariffPicker(true)} activeOpacity={0.75}>
           <Text style={[s.selectText, !selectedTariff && s.selectPlaceholder]} numberOfLines={1}>
             {selectedTariff
               ? `${selectedTariff.origin} → ${selectedTariff.destination}`
@@ -471,6 +455,24 @@ export function ReportScreen() {
           onChangeText={setExtortedFare}
           keyboardType="decimal-pad"
         />
+        {selectedTariff && extortedFare && !isNaN(parseFloat(extortedFare)) && (
+          <View style={s.fareHint}>
+            <Feather
+              name={parseFloat(extortedFare) > selectedTariff.fares.regular ? "alert-circle" : "check-circle"}
+              size={12}
+              color={parseFloat(extortedFare) > selectedTariff.fares.regular ? colors.destructive : colors.success}
+            />
+            <Text style={[s.fareHintText, {
+              color: parseFloat(extortedFare) > selectedTariff.fares.regular
+                ? colors.destructive
+                : colors.success,
+            }]}>
+              {parseFloat(extortedFare) > selectedTariff.fares.regular
+                ? `₱${(parseFloat(extortedFare) - selectedTariff.fares.regular).toFixed(2)} above official fare`
+                : "Amount is within the official fare"}
+            </Text>
+          </View>
+        )}
 
         <Text style={s.label}>
           Description <Text style={s.required}>*</Text>
@@ -488,14 +490,13 @@ export function ReportScreen() {
           Keywords like "overcharge", "rude", "mabilis" will auto-tag your report.
         </Text>
 
-        <Text style={s.label}>Evidence Photo <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular" }}>(optional)</Text></Text>
+        <Text style={s.label}>
+          Evidence Photo{" "}
+          <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular" }}>(optional)</Text>
+        </Text>
         {evidenceUri ? (
           <View style={s.evidencePreview}>
-            <Image
-              source={{ uri: evidenceUri }}
-              style={s.evidenceImage}
-              resizeMode="cover"
-            />
+            <Image source={{ uri: evidenceUri }} style={s.evidenceImage} resizeMode="cover" />
             <View style={s.evidenceLabel}>
               <Feather name="check-circle" size={12} color={colors.pink} />
               <Text style={s.evidenceLabelText}>Evidence photo attached</Text>
@@ -523,11 +524,11 @@ export function ReportScreen() {
         </Text>
 
         <Button
-          label={submitLabel}
+          label={submitting ? "Submitting..." : "Submit Report"}
           onPress={handleSubmit}
-          loading={isLoading}
+          loading={submitting}
           fullWidth
-          style={s.submitBtn}
+          style={{ marginTop: 24 }}
         />
       </ScrollView>
 
@@ -540,7 +541,7 @@ export function ReportScreen() {
                 <Feather name="x" size={20} color={colors.foreground} />
               </TouchableOpacity>
             </View>
-            <ScrollView>
+            <ScrollView showsVerticalScrollIndicator={false}>
               {tariffs.map((t) => (
                 <TouchableOpacity
                   key={t.id}
@@ -550,9 +551,12 @@ export function ReportScreen() {
                     setShowTariffPicker(false);
                     Haptics.selectionAsync();
                   }}
+                  activeOpacity={0.75}
                 >
                   <Text style={s.pickerItemText}>{t.origin} → {t.destination}</Text>
-                  <Text style={s.pickerItemFare}>₱{t.fares.regular} regular · {t.distance_km} km</Text>
+                  <Text style={s.pickerItemFare}>
+                    ₱{t.fares.regular} regular · {t.distance_km} km
+                  </Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>

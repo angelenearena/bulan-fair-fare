@@ -15,27 +15,34 @@ import { Tariff } from "../types";
 
 const COLLECTION = "tariffs";
 
-export async function getTariffs(): Promise<Tariff[]> {
-  const q = query(collection(db, COLLECTION), orderBy("origin"));
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map((d) => ({
+function mapTariff(d: { id: string; data: () => Record<string, unknown> }): Tariff {
+  const data = d.data();
+  return {
+    ...(data as Omit<Tariff, "id" | "createdAt" | "updatedAt">),
     id: d.id,
-    ...d.data(),
-    createdAt: d.data().createdAt?.toDate() ?? new Date(),
-    updatedAt: d.data().updatedAt?.toDate() ?? new Date(),
-  })) as Tariff[];
+    createdAt: (data.createdAt as { toDate?: () => Date })?.toDate?.() ?? new Date(),
+    updatedAt: (data.updatedAt as { toDate?: () => Date })?.toDate?.() ?? new Date(),
+  } as Tariff;
+}
+
+export async function getTariffs(): Promise<Tariff[]> {
+  try {
+    const q = query(collection(db, COLLECTION), orderBy("origin"));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(mapTariff);
+  } catch {
+    // Fallback: fetch without orderBy if index fails
+    const snapshot = await getDocs(collection(db, COLLECTION));
+    const tariffs = snapshot.docs.map(mapTariff);
+    return tariffs.sort((a, b) => a.origin.localeCompare(b.origin));
+  }
 }
 
 export async function getTariffById(id: string): Promise<Tariff | null> {
   const ref = doc(db, COLLECTION, id);
   const snapshot = await getDoc(ref);
   if (!snapshot.exists()) return null;
-  return {
-    id: snapshot.id,
-    ...snapshot.data(),
-    createdAt: snapshot.data().createdAt?.toDate() ?? new Date(),
-    updatedAt: snapshot.data().updatedAt?.toDate() ?? new Date(),
-  } as Tariff;
+  return mapTariff({ id: snapshot.id, data: () => snapshot.data() as Record<string, unknown> });
 }
 
 export async function createTariff(data: Omit<Tariff, "id" | "createdAt" | "updatedAt">): Promise<string> {

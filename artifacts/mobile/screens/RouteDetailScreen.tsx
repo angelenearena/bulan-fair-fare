@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -29,22 +29,32 @@ export function RouteDetailScreen() {
   const [tariff, setTariff] = useState<Tariff | null>(null);
   const [settings, setSettings] = useState<GlobalSettings | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedSector, setSelectedSector] = useState<SectorType>("regular");
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const [t, s] = await Promise.all([getTariffById(id!), getSettings()]);
+  const load = useCallback(async () => {
+    if (!id) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const [t, s] = await Promise.all([getTariffById(id), getSettings()]);
+      if (!t) {
+        setError("Route not found. It may have been removed or the link is invalid.");
+      } else {
         setTariff(t);
         setSettings(s);
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
       }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Failed to load route";
+      setError(msg);
+    } finally {
+      setLoading(false);
     }
-    if (id) load();
   }, [id]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   function computeFare(sector: SectorType): number {
     if (!tariff || !settings) return 0;
@@ -70,14 +80,10 @@ export function RouteDetailScreen() {
       gap: 12,
     },
     backBtn: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
+      width: 36, height: 36, borderRadius: 18,
       backgroundColor: colors.card,
-      alignItems: "center",
-      justifyContent: "center",
-      borderWidth: 1,
-      borderColor: colors.border,
+      alignItems: "center", justifyContent: "center",
+      borderWidth: 1, borderColor: colors.border,
     },
     headerTitle: {
       flex: 1,
@@ -122,11 +128,7 @@ export function RouteDetailScreen() {
       fontFamily: "Inter_500Medium",
       fontSize: 16,
     },
-    routeMeta: {
-      flexDirection: "row",
-      gap: 12,
-      marginTop: 12,
-    },
+    routeMeta: { flexDirection: "row", gap: 12, marginTop: 12 },
     metaBadge: {
       flexDirection: "row",
       alignItems: "center",
@@ -141,10 +143,7 @@ export function RouteDetailScreen() {
       fontFamily: "Inter_500Medium",
       fontSize: 12,
     },
-    sectorRow: {
-      flexDirection: "row",
-      gap: 8,
-    },
+    sectorRow: { flexDirection: "row", gap: 8 },
     sectorBtn: {
       flex: 1,
       backgroundColor: colors.card,
@@ -154,10 +153,7 @@ export function RouteDetailScreen() {
       borderWidth: 1.5,
       borderColor: colors.border,
     },
-    sectorBtnActive: {
-      borderColor: colors.pink,
-      backgroundColor: colors.pinkMuted,
-    },
+    sectorBtnActive: { borderColor: colors.pink, backgroundColor: colors.pinkMuted },
     sectorLabel: {
       color: colors.mutedForeground,
       fontFamily: "Inter_500Medium",
@@ -232,11 +228,7 @@ export function RouteDetailScreen() {
       fontFamily: "Inter_700Bold",
       fontSize: 16,
     },
-    bodyRow: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: 8,
-    },
+    bodyRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
     bodyBadge: {
       backgroundColor: colors.card,
       borderRadius: 8,
@@ -250,35 +242,77 @@ export function RouteDetailScreen() {
       fontFamily: "Inter_500Medium",
       fontSize: 13,
     },
-    descText: {
-      color: colors.mutedForeground,
-      fontFamily: "Inter_400Regular",
-      fontSize: 14,
-      lineHeight: 20,
-    },
-    loadingContainer: {
+    centerContainer: {
       flex: 1,
       alignItems: "center",
       justifyContent: "center",
+      padding: 30,
+    },
+    errorTitle: {
+      color: colors.foreground,
+      fontFamily: "Inter_600SemiBold",
+      fontSize: 16,
+      marginTop: 16,
+      marginBottom: 8,
+      textAlign: "center",
+    },
+    errorText: {
+      color: colors.mutedForeground,
+      fontFamily: "Inter_400Regular",
+      fontSize: 14,
+      textAlign: "center",
+      lineHeight: 20,
+      marginBottom: 24,
     },
   });
 
   if (loading) {
     return (
-      <View style={[s.container, s.loadingContainer]}>
-        <ActivityIndicator size="large" color={colors.pink} />
+      <View style={s.container}>
+        <View style={s.header}>
+          <TouchableOpacity style={s.backBtn} onPress={() => router.back()}>
+            <Feather name="arrow-left" size={18} color={colors.foreground} />
+          </TouchableOpacity>
+          <Text style={s.headerTitle}>Loading route...</Text>
+        </View>
+        <View style={s.divider} />
+        <View style={s.centerContainer}>
+          <ActivityIndicator size="large" color={colors.pink} />
+        </View>
       </View>
     );
   }
 
-  if (!tariff) {
+  if (error || !tariff) {
     return (
-      <View style={[s.container, s.loadingContainer]}>
-        <Feather name="alert-circle" size={40} color={colors.mutedForeground} />
-        <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 15, marginTop: 12 }}>
-          Route not found
-        </Text>
-        <Button label="Go Back" onPress={() => router.back()} variant="outline" style={{ marginTop: 20 }} />
+      <View style={s.container}>
+        <View style={s.header}>
+          <TouchableOpacity style={s.backBtn} onPress={() => router.back()}>
+            <Feather name="arrow-left" size={18} color={colors.foreground} />
+          </TouchableOpacity>
+          <Text style={s.headerTitle}>Route Detail</Text>
+        </View>
+        <View style={s.divider} />
+        <View style={s.centerContainer}>
+          <Feather name="alert-circle" size={48} color={colors.mutedForeground} />
+          <Text style={s.errorTitle}>Route Not Found</Text>
+          <Text style={s.errorText}>
+            {error ?? "This route may have been removed or the link is invalid."}
+          </Text>
+          <View style={{ flexDirection: "row", gap: 12 }}>
+            <Button
+              label="Retry"
+              onPress={load}
+              variant="outline"
+              style={{ minWidth: 100 }}
+            />
+            <Button
+              label="Go Back"
+              onPress={() => router.back()}
+              style={{ minWidth: 100 }}
+            />
+          </View>
+        </View>
       </View>
     );
   }
@@ -335,7 +369,10 @@ export function RouteDetailScreen() {
                 {SECTOR_DISCOUNTS[sector] > 0 ? `-${(SECTOR_DISCOUNTS[sector] * 100).toFixed(0)}%` : "Full"}
               </Text>
               {SECTOR_RA[sector] ? (
-                <Text style={{ color: selectedSector === sector ? colors.pinkLight : colors.mutedForeground, fontSize: 9, fontFamily: "Inter_400Regular" }}>
+                <Text style={{
+                  color: selectedSector === sector ? colors.pinkLight : colors.mutedForeground,
+                  fontSize: 9, fontFamily: "Inter_400Regular",
+                }}>
                   {SECTOR_RA[sector]}
                 </Text>
               ) : null}
@@ -361,7 +398,9 @@ export function RouteDetailScreen() {
             <Text style={s.breakdownValue}>₱{settings?.base_fare.toFixed(2)}</Text>
           </View>
           <View style={s.breakdownRow}>
-            <Text style={s.breakdownLabel}>Distance ({tariff.distance_km} km × ₱{settings?.per_km_rate})</Text>
+            <Text style={s.breakdownLabel}>
+              Distance ({tariff.distance_km} km × ₱{settings?.per_km_rate})
+            </Text>
             <Text style={s.breakdownValue}>
               ₱{((settings?.per_km_rate ?? 0) * tariff.distance_km).toFixed(2)}
             </Text>
@@ -372,7 +411,9 @@ export function RouteDetailScreen() {
           </View>
           {discountAmount > 0 && (
             <View style={s.breakdownRow}>
-              <Text style={s.breakdownLabel}>Sector Discount ({(SECTOR_DISCOUNTS[selectedSector] * 100).toFixed(0)}%)</Text>
+              <Text style={s.breakdownLabel}>
+                Sector Discount ({(SECTOR_DISCOUNTS[selectedSector] * 100).toFixed(0)}%)
+              </Text>
               <Text style={{ color: "#22c55e", fontFamily: "Inter_500Medium", fontSize: 13 }}>
                 -₱{discountAmount.toFixed(2)}
               </Text>
@@ -413,12 +454,17 @@ export function RouteDetailScreen() {
         {tariff.description ? (
           <>
             <Text style={s.sectionTitle}>Route Notes</Text>
-            <Text style={s.descText}>{tariff.description}</Text>
+            <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 14, lineHeight: 20 }}>
+              {tariff.description}
+            </Text>
           </>
         ) : null}
 
         <Text style={s.sectionTitle}>Legal Basis</Text>
-        <View style={{ backgroundColor: colors.card, borderRadius: colors.radius, padding: 14, borderWidth: 1, borderColor: colors.border }}>
+        <View style={{
+          backgroundColor: colors.card, borderRadius: colors.radius,
+          padding: 14, borderWidth: 1, borderColor: colors.border,
+        }}>
           <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, lineHeight: 18, marginBottom: 6 }}>
             Municipal Ordinance No. 2022-21 — Official tricycle fare matrix from Bulan Poblacion to barangays and vice versa.
           </Text>
