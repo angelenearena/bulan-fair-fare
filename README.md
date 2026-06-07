@@ -750,4 +750,4 @@ If you found this project helpful, please consider:
 
 ---
 
-*Built with ❤️ by the Sorsogon State University ADET2 Class*
+*Built with ❤️*
