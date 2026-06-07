@@ -466,4 +466,8 @@ Manual Validation Test Cases (Course Audit Log)
 
 ```
 
+<<<<<<< HEAD
 ```
+=======
+```
+>>>>>>> 137c65a8c740a3d2dfc3854c99cd4040e6fcdf0d
