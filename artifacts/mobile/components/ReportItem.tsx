@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "../hooks/useColors";
 import { OverchargingReport } from "../types";
@@ -8,6 +8,7 @@ interface ReportItemProps {
   report: OverchargingReport;
   showActions?: boolean;
   onStatusChange?: (status: OverchargingReport["status"]) => void;
+  onPress?: () => void;
 }
 
 const STATUS_CONFIG = {
@@ -16,7 +17,7 @@ const STATUS_CONFIG = {
   Resolved: { color: "#22c55e", bg: "rgba(34,197,94,0.15)", icon: "check-circle" as const },
 };
 
-export function ReportItem({ report }: ReportItemProps) {
+export function ReportItem({ report, onPress }: ReportItemProps) {
   const colors = useColors();
   const cfg = STATUS_CONFIG[report.status];
 
@@ -150,8 +151,10 @@ export function ReportItem({ report }: ReportItemProps) {
     },
   });
 
+  const Wrapper = onPress ? TouchableOpacity : View;
+
   return (
-    <View style={s.card}>
+    <Wrapper style={s.card} onPress={onPress} activeOpacity={0.8}>
       <View style={s.header}>
         <Text style={s.routeText} numberOfLines={2}>
           {report.origin} → {report.destination}
@@ -195,15 +198,23 @@ export function ReportItem({ report }: ReportItemProps) {
         ))}
       </View>
 
-      <Text style={s.dateText}>
-        {report.createdAt instanceof Date
-          ? report.createdAt.toLocaleDateString("en-PH", {
-              month: "short",
-              day: "numeric",
-              year: "numeric",
-            })
-          : ""}
-      </Text>
-    </View>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
+        <Text style={s.dateText}>
+          {report.createdAt instanceof Date
+            ? report.createdAt.toLocaleDateString("en-PH", {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+              })
+            : ""}
+        </Text>
+        {onPress && (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
+            <Text style={{ color: "#FF2D78", fontFamily: "Inter_500Medium", fontSize: 11 }}>View details</Text>
+            <Feather name="chevron-right" size={12} color="#FF2D78" />
+          </View>
+        )}
+      </View>
+    </Wrapper>
   );
 }

@@ -47,7 +47,7 @@ const ROUTES: { destination: string; distance_km: number; regular: number }[] = 
   { destination: "N. Roque", distance_km: 7, regular: 25 },
   { destination: "Nasuje", distance_km: 5.5, regular: 45 },
   { destination: "Namo", distance_km: 14, regular: 45 },
-  { destination: "Otavi", distance_km: 7, regular: 30 },
+  { destination: "Otavi", distance_km: 7, regular: 25 },
   { destination: "Oyango", distance_km: 1, regular: 10 },
   { destination: "Padre Diaz", distance_km: 12, regular: 65 },
   { destination: "Palale", distance_km: 9, regular: 35 },

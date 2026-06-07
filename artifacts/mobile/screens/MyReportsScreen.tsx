@@ -177,7 +177,12 @@ export function MyReportsScreen() {
               </Text>
             </View>
           }
-          renderItem={({ item }) => <ReportItem report={item} />}
+          renderItem={({ item }) => (
+            <ReportItem
+              report={item}
+              onPress={() => router.push(`/report-detail/${item.id}` as never)}
+            />
+          )}
           showsVerticalScrollIndicator={false}
           scrollEnabled={!!reports.length}
         />
