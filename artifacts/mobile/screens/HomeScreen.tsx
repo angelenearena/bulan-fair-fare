@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   Platform,
   ScrollView,
+  Modal,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -70,18 +71,15 @@ export function HomeScreen() {
     return [...set].sort();
   }, [tariffs]);
 
-  // When origin is chosen, show every location reachable in EITHER direction
+  const TERMINAL = "Bulan Poblacion (Terminal)";
+
+  // Destinations: all locations except the origin itself (supports barangay-to-barangay via terminal)
   const destinations = useMemo(() => {
     if (!selectedOrigin) return [];
-    const set = new Set<string>();
-    tariffs.forEach((t) => {
-      if (t.origin === selectedOrigin) set.add(t.destination);
-      if (t.destination === selectedOrigin) set.add(t.origin);
-    });
-    return [...set].sort();
-  }, [tariffs, selectedOrigin]);
+    return allLocations.filter((loc) => loc !== selectedOrigin);
+  }, [allLocations, selectedOrigin]);
 
-  // Find the matching tariff in EITHER direction
+  // Find the matching tariff in EITHER direction (direct route)
   const matchedTariff = useMemo(() => {
     if (!selectedOrigin || !selectedDest) return null;
     return (
@@ -94,6 +92,25 @@ export function HomeScreen() {
       null
     );
   }, [tariffs, selectedOrigin, selectedDest]);
+
+  // Through-terminal fare: A→Terminal + Terminal→B when no direct route
+  const viaTerminalFare = useMemo(() => {
+    if (!selectedOrigin || !selectedDest) return null;
+    if (matchedTariff) return null; // direct route exists
+    if (selectedOrigin === TERMINAL || selectedDest === TERMINAL) return null;
+
+    const legA =
+      tariffs.find((t) => t.origin === selectedOrigin && t.destination === TERMINAL) ??
+      tariffs.find((t) => t.destination === selectedOrigin && t.origin === TERMINAL) ??
+      null;
+    const legB =
+      tariffs.find((t) => t.origin === TERMINAL && t.destination === selectedDest) ??
+      tariffs.find((t) => t.destination === TERMINAL && t.origin === selectedDest) ??
+      null;
+
+    if (!legA || !legB) return null;
+    return { legA, legB };
+  }, [tariffs, selectedOrigin, selectedDest, matchedTariff]);
 
   function handleSelectOrigin(origin: string) {
     setSelectedOrigin(origin);
@@ -342,34 +359,83 @@ export function HomeScreen() {
   });
 
   function renderCalcFareResult() {
-    if (!matchedTariff) return null;
-    return (
-      <View style={s.calcResult}>
-        <Text style={s.calcResultRoute} numberOfLines={1}>
-          {matchedTariff.origin} → {matchedTariff.destination} · {matchedTariff.distance_km} km
-        </Text>
-        <View style={s.calcFaresRow}>
-          {(["regular", "student", "senior", "pwd"] as const).map((key) => (
-            <View key={key} style={s.calcFareItem}>
-              <Text style={s.calcFareLabel}>
-                {key === "senior" ? "Senior" : key.charAt(0).toUpperCase() + key.slice(1)}
-              </Text>
-              <Text style={[s.calcFareValue, key === "regular" && s.calcFareRegular]}>
-                ₱{matchedTariff.fares[key].toFixed(0)}
-              </Text>
-            </View>
-          ))}
+    if (matchedTariff) {
+      return (
+        <View style={s.calcResult}>
+          <Text style={s.calcResultRoute} numberOfLines={1}>
+            {matchedTariff.origin} → {matchedTariff.destination} · {matchedTariff.distance_km} km
+          </Text>
+          <View style={s.calcFaresRow}>
+            {(["regular", "student", "senior", "pwd"] as const).map((key) => (
+              <View key={key} style={s.calcFareItem}>
+                <Text style={s.calcFareLabel}>
+                  {key === "senior" ? "Senior" : key.charAt(0).toUpperCase() + key.slice(1)}
+                </Text>
+                <Text style={[s.calcFareValue, key === "regular" && s.calcFareRegular]}>
+                  {`₱${matchedTariff.fares[key].toFixed(0)}`}
+                </Text>
+              </View>
+            ))}
+          </View>
+          <TouchableOpacity
+            style={s.calcDetailsBtn}
+            onPress={() => router.push(`/route/${matchedTariff.id}`)}
+            activeOpacity={0.8}
+          >
+            <Text style={s.calcDetailsBtnText}>View Full Breakdown</Text>
+            <Feather name="arrow-right" size={14} color="#fff" />
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity
-          style={s.calcDetailsBtn}
-          onPress={() => router.push(`/route/${matchedTariff.id}`)}
-          activeOpacity={0.8}
-        >
-          <Text style={s.calcDetailsBtnText}>View Full Breakdown</Text>
-          <Feather name="arrow-right" size={14} color="#fff" />
-        </TouchableOpacity>
-      </View>
-    );
+      );
+    }
+
+    if (viaTerminalFare) {
+      const { legA, legB } = viaTerminalFare;
+      const totalRegular = legA.fares.regular + legB.fares.regular;
+      const totalStudent = legA.fares.student + legB.fares.student;
+      const totalSenior = legA.fares.senior + legB.fares.senior;
+      const totalPwd = legA.fares.pwd + legB.fares.pwd;
+      return (
+        <View style={s.calcResult}>
+          <Text style={s.calcResultRoute} numberOfLines={2}>
+            {`${selectedOrigin} → ${selectedDest}\nvia Bulan Terminal`}
+          </Text>
+          <View style={[s.calcFaresRow, { marginBottom: 8 }]}>
+            {([
+              { label: "Regular", value: totalRegular },
+              { label: "Student", value: totalStudent },
+              { label: "Senior", value: totalSenior },
+              { label: "PWD", value: totalPwd },
+            ] as const).map((item) => (
+              <View key={item.label} style={s.calcFareItem}>
+                <Text style={s.calcFareLabel}>{item.label}</Text>
+                <Text style={[s.calcFareValue, item.label === "Regular" && s.calcFareRegular]}>
+                  {`₱${item.value.toFixed(0)}`}
+                </Text>
+              </View>
+            ))}
+          </View>
+          <View style={{ backgroundColor: "rgba(255,45,120,0.1)", borderRadius: 6, padding: 8, marginBottom: 8 }}>
+            <Text style={{ color: colors.pink, fontFamily: "Inter_400Regular", fontSize: 11, lineHeight: 16 }}>
+              {`Leg 1: ${selectedOrigin} → Terminal  ₱${legA.fares.regular}\nLeg 2: Terminal → ${selectedDest}  ₱${legB.fares.regular}`}
+            </Text>
+          </View>
+        </View>
+      );
+    }
+
+    if (selectedOrigin && selectedDest) {
+      return (
+        <View style={[s.calcResult, { alignItems: "center", paddingVertical: 18 }]}>
+          <Feather name="alert-circle" size={20} color={colors.pink} />
+          <Text style={[s.calcResultRoute, { marginTop: 8, marginBottom: 0 }]}>
+            No route found for this combination
+          </Text>
+        </View>
+      );
+    }
+
+    return null;
   }
 
   function renderFareCalculator() {
@@ -526,9 +592,18 @@ export function HomeScreen() {
         />
       )}
 
-      {/* Origin picker sheet */}
-      {showOriginPicker && (
-        <View style={s.pickerOverlay}>
+      {/* Origin picker */}
+      <Modal
+        visible={showOriginPicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowOriginPicker(false)}
+      >
+        <TouchableOpacity
+          style={s.pickerOverlay}
+          activeOpacity={1}
+          onPress={() => setShowOriginPicker(false)}
+        >
           <View style={s.pickerSheet}>
             <View style={s.pickerSheetHeader}>
               <Text style={s.pickerSheetTitle}>Select Origin</Text>
@@ -551,12 +626,21 @@ export function HomeScreen() {
               ))}
             </ScrollView>
           </View>
-        </View>
-      )}
+        </TouchableOpacity>
+      </Modal>
 
-      {/* Destination picker sheet */}
-      {showDestPicker && (
-        <View style={s.pickerOverlay}>
+      {/* Destination picker */}
+      <Modal
+        visible={showDestPicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowDestPicker(false)}
+      >
+        <TouchableOpacity
+          style={s.pickerOverlay}
+          activeOpacity={1}
+          onPress={() => setShowDestPicker(false)}
+        >
           <View style={s.pickerSheet}>
             <View style={s.pickerSheetHeader}>
               <Text style={s.pickerSheetTitle}>Select Destination</Text>
@@ -579,8 +663,8 @@ export function HomeScreen() {
               ))}
             </ScrollView>
           </View>
-        </View>
-      )}
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }

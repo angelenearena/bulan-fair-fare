@@ -1,6 +1,7 @@
 import {
   collection,
   getDocs,
+  getDoc,
   addDoc,
   updateDoc,
   doc,
@@ -128,6 +129,12 @@ export async function updateReportStatus(id: string, status: OverchargingReport[
     status,
     updatedAt: serverTimestamp(),
   });
+}
+
+export async function getReportById(id: string): Promise<OverchargingReport | null> {
+  const snapshot = await getDoc(doc(db, COLLECTION, id));
+  if (!snapshot.exists()) return null;
+  return mapDoc(snapshot);
 }
 
 export async function archiveReport(id: string): Promise<void> {

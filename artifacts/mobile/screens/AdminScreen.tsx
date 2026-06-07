@@ -440,7 +440,11 @@ export function AdminScreen() {
             )
           }
           renderItem={({ item }) => (
-            <View style={s.reportCard}>
+            <TouchableOpacity
+              style={s.reportCard}
+              onPress={() => router.push(`/admin-report/${item.id}` as never)}
+              activeOpacity={0.85}
+            >
               <View style={s.reportHeader}>
                 <Text style={s.reportRoute} numberOfLines={1}>
                   {item.origin} → {item.destination}
@@ -457,7 +461,7 @@ export function AdminScreen() {
                 </View>
               </View>
               <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, marginBottom: 4 }}>
-                Body #{item.body_number} · ₱{item.legal_fare} → ₱{item.extorted_fare}
+                {`Body #${item.body_number} · ₱${item.legal_fare} → ₱${item.extorted_fare}`}
               </Text>
               <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, marginBottom: 8 }} numberOfLines={2}>
                 {item.description}
@@ -470,21 +474,25 @@ export function AdminScreen() {
                 ))}
               </View>
               <View style={s.statusActions}>
-                {STATUS_OPTIONS.filter((s) => s !== item.status).map((status) => (
+                {STATUS_OPTIONS.filter((opt) => opt !== item.status).map((status) => (
                   <TouchableOpacity
                     key={status}
                     style={[s.statusBtn, { borderColor: STATUS_COLORS[status], backgroundColor: STATUS_COLORS[status] + "22" }]}
-                    onPress={() => handleStatusChange(item.id, status)}
+                    onPress={(e) => { e.stopPropagation?.(); handleStatusChange(item.id, status); }}
                   >
-                    <Text style={[s.statusBtnText, { color: STATUS_COLORS[status] }]}>→ {status}</Text>
+                    <Text style={[s.statusBtnText, { color: STATUS_COLORS[status] }]}>{`→ ${status}`}</Text>
                   </TouchableOpacity>
                 ))}
-                <TouchableOpacity style={s.archiveBtn} onPress={() => handleArchive(item.id)}>
+                <TouchableOpacity style={s.archiveBtn} onPress={(e) => { e.stopPropagation?.(); handleArchive(item.id); }}>
                   <Feather name="archive" size={13} color={colors.destructive} />
                   <Text style={s.archiveText}>Archive</Text>
                 </TouchableOpacity>
               </View>
-            </View>
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "flex-end", marginTop: 6 }}>
+                <Text style={{ color: colors.pink, fontFamily: "Inter_500Medium", fontSize: 11 }}>View details</Text>
+                <Feather name="chevron-right" size={13} color={colors.pink} />
+              </View>
+            </TouchableOpacity>
           )}
           showsVerticalScrollIndicator={false}
         />

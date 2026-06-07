@@ -56,9 +56,33 @@ ReportScreen wraps evidence upload in try/catch; if Firebase Storage upload fail
 Firestore without `evidence_url`. Alert informs user if photo was dropped.
 
 ## Home screen fare calculator
-"Quick Fare Lookup" collapsible card added above route list. Uses existing loaded tariffs state (no extra
-Firestore reads). Origin picker uses ALL unique locations from both `origin` AND `destination` fields.
-Destination picker filters to reachable locations in EITHER direction. Tariff match searches both directions.
+"Quick Fare Lookup" collapsible card above route list. All locations shown in both origin AND destination
+pickers (no filtering — any barangay to any barangay is selectable). For non-direct routes, through-terminal
+calculation: legA (origin→Terminal) + legB (Terminal→dest) shown as combined fare with breakdown.
+Both origin and destination pickers use Modal (not position:absolute overlay) for web compatibility.
+
+## Static tariff fallback
+`services/staticTariffs.ts` embeds all 56 official routes as STATIC_TARIFFS. `getTariffs()` loads from
+Firestore first, then falls through to STATIC_TARIFFS if Firestore is empty or inaccessible. This ensures
+the route picker always has data even if Firestore rules haven't been deployed or collection is empty.
+**Why:** Firestore write rules restrict tariff creation to admins only, so non-admin users can't auto-seed.
+
+## useAuth fallback
+If Firestore `getDoc` on users/{uid} fails (permissions or offline), `useAuth` now creates a minimal AppUser
+from Firebase Auth data (role: "commuter") instead of setting user=null. This prevents the form guard
+(`if (!user) return`) from blocking authenticated users from submitting reports.
+**Why:** Firestore rules might not be deployed, causing permission-denied errors that would silently break auth.
+
+## Picker Modal (web fix)
+All bottom-sheet pickers (route picker in ReportScreen, origin/dest pickers in HomeScreen) use React Native
+`Modal` component instead of `position: "absolute"` overlay. The overlay approach gets clipped inside
+scrollable containers on web; Modal renders outside the view hierarchy.
+
+## Admin report detail screen
+`screens/AdminReportDetailScreen.tsx` — full detail with: fare comparison, description, evidence photo
+(Image component), status timeline (Pending→Reviewed→Resolved), status change buttons, archive button.
+Route: `app/admin-report/[id].tsx` — calls `getReportById(id)` from reports service.
+Admin report cards in AdminScreen are now tappable TouchableOpacity → navigates to detail screen.
 
 ## Push notifications architecture (no Cloud Functions, no billing)
 - `notification_tokens/{userId}` Firestore collection — token owner can write; any auth user can read

@@ -25,15 +25,33 @@ export function useAuth() {
             const data = userDoc.data();
             setUser({
               uid: fbUser.uid,
-              name: data.name ?? "",
+              name: data.name ?? fbUser.displayName ?? fbUser.email?.split("@")[0] ?? "User",
               email: data.email ?? fbUser.email ?? "",
               role: data.role as UserRole,
               createdAt: data.createdAt?.toDate() ?? new Date(),
               updatedAt: data.updatedAt?.toDate() ?? new Date(),
             });
+          } else {
+            // User doc not found yet (e.g. just registered) — build minimal user
+            setUser({
+              uid: fbUser.uid,
+              name: fbUser.displayName ?? fbUser.email?.split("@")[0] ?? "User",
+              email: fbUser.email ?? "",
+              role: "commuter",
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            });
           }
         } catch {
-          setUser(null);
+          // Firestore read failed (permissions or offline) — use Firebase Auth data as fallback
+          setUser({
+            uid: fbUser.uid,
+            name: fbUser.displayName ?? fbUser.email?.split("@")[0] ?? "User",
+            email: fbUser.email ?? "",
+            role: "commuter",
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          });
         }
       } else {
         setFirebaseUser(null);

@@ -31,26 +31,22 @@ export async function getTariffs(): Promise<Tariff[]> {
     const snapshot = await getDocs(q);
     if (!snapshot.empty) return snapshot.docs.map(mapTariff);
   } catch {
-    // orderBy failed — try without it
+    // orderBy may require an index — try without it
   }
 
-  // Fallback: fetch without orderBy
-  const snapshot = await getDocs(collection(db, COLLECTION));
-  if (!snapshot.empty) {
-    const tariffs = snapshot.docs.map(mapTariff);
-    return tariffs.sort((a, b) => a.origin.localeCompare(b.origin));
-  }
-
-  // Collection is empty — auto-seed official routes on first run
   try {
-    const { seedTariffs } = await import("./seedData");
-    await seedTariffs();
-    const seeded = await getDocs(collection(db, COLLECTION));
-    const tariffs = seeded.docs.map(mapTariff);
-    return tariffs.sort((a, b) => a.origin.localeCompare(b.origin));
+    const snapshot = await getDocs(collection(db, COLLECTION));
+    if (!snapshot.empty) {
+      const tariffs = snapshot.docs.map(mapTariff);
+      return tariffs.sort((a, b) => a.origin.localeCompare(b.origin));
+    }
   } catch {
-    return [];
+    // Firestore unavailable — fall through to static data
   }
+
+  // Collection is empty or inaccessible — use embedded official routes
+  const { STATIC_TARIFFS } = await import("./staticTariffs");
+  return STATIC_TARIFFS;
 }
 
 export async function getTariffById(id: string): Promise<Tariff | null> {

@@ -10,6 +10,7 @@ import {
   Platform,
   Image,
   ActivityIndicator,
+  Modal,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -116,7 +117,6 @@ export function ReportScreen() {
       Alert.alert("Sign In Required", "Please sign in to submit a report.");
       return;
     }
-
     if (!selectedTariff) {
       Alert.alert("Select Route", "Please select the route where overcharging occurred.");
       return;
@@ -142,7 +142,7 @@ export function ReportScreen() {
     if (extorted <= selectedTariff.fares.regular) {
       Alert.alert(
         "No Overcharge Detected",
-        `The amount you entered (₱${extorted.toFixed(2)}) is not greater than the official regular fare (₱${selectedTariff.fares.regular.toFixed(2)}). If you believe you were overcharged, please enter the exact amount the driver demanded.`
+        `The amount you entered (₱${extorted.toFixed(2)}) is not greater than the official fare (₱${selectedTariff.fares.regular.toFixed(2)}). Please enter the exact amount demanded by the driver.`
       );
       return;
     }
@@ -150,14 +150,12 @@ export function ReportScreen() {
     setSubmitting(true);
     let evidence_url: string | undefined;
 
-    // Evidence upload is non-blocking — if it fails, the report still submits
     if (evidenceBase64 && Platform.OS !== "web") {
       try {
         const ext = evidenceMime.includes("png") ? "png" : "jpg";
         const filename = `evidence/reports/${user.uid}_${Date.now()}.${ext}`;
         evidence_url = await uploadBase64Image(evidenceBase64, evidenceMime, filename);
       } catch {
-        // Upload failed — report will submit without the photo
         evidence_url = undefined;
       }
     }
@@ -175,17 +173,12 @@ export function ReportScreen() {
         ...(evidence_url ? { evidence_url } : {}),
       });
 
-      // Notify admins — non-blocking, silent fail
       notifyAdminsOfReport(selectedTariff.origin, selectedTariff.destination, bodyNumber.trim());
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert(
         "Report Submitted ✓",
-        evidence_url
-          ? "Your overcharging report and evidence photo have been filed. Our team will review it shortly."
-          : evidenceBase64 && Platform.OS !== "web"
-          ? "Report filed. The evidence photo could not be uploaded — you can share it separately if needed."
-          : "Your overcharging report has been filed. Our team will review it shortly.",
+        "Your overcharging report has been filed. Our team will review it shortly.",
         [
           {
             text: "OK",
@@ -275,7 +268,7 @@ export function ReportScreen() {
       paddingVertical: 12,
       flexDirection: "row",
       alignItems: "center",
-      justifyContent: "space-between",
+      gap: 8,
     },
     selectText: {
       color: colors.foreground,
@@ -345,18 +338,18 @@ export function ReportScreen() {
       width: 32, height: 32,
       alignItems: "center", justifyContent: "center",
     },
-    pickerOverlay: {
-      position: "absolute",
-      top: 0, left: 0, right: 0, bottom: 0,
+
+    // Modal picker
+    modalOverlay: {
+      flex: 1,
       backgroundColor: "rgba(0,0,0,0.7)",
-      zIndex: 100,
       justifyContent: "flex-end",
     },
     pickerSheet: {
       backgroundColor: colors.card,
       borderTopLeftRadius: 20,
       borderTopRightRadius: 20,
-      maxHeight: "70%",
+      maxHeight: "75%",
       paddingBottom: Platform.OS === "web" ? 34 : insets.bottom + 10,
     },
     pickerHeader: {
@@ -415,6 +408,9 @@ export function ReportScreen() {
     );
   }
 
+  const extorted = parseFloat(extortedFare);
+  const isOvercharge = selectedTariff && !isNaN(extorted) && extorted > selectedTariff.fares.regular;
+
   return (
     <View style={s.container}>
       <View style={s.header}>
@@ -429,24 +425,25 @@ export function ReportScreen() {
         </Text>
         <TouchableOpacity
           style={s.selectBtn}
-          onPress={() => { if (!loadingTariffs && tariffs.length > 0) setShowTariffPicker(true); }}
+          onPress={() => {
+            if (!loadingTariffs && tariffs.length > 0) setShowTariffPicker(true);
+          }}
           activeOpacity={0.75}
-          disabled={loadingTariffs || tariffs.length === 0}
         >
           {loadingTariffs ? (
-            <>
-              <ActivityIndicator size="small" color={colors.mutedForeground} style={{ marginRight: 8 }} />
-              <Text style={[s.selectText, s.selectPlaceholder]}>Loading routes...</Text>
-            </>
-          ) : tariffs.length === 0 ? (
-            <Text style={[s.selectText, s.selectPlaceholder]}>No routes available</Text>
+            <ActivityIndicator size="small" color={colors.mutedForeground} />
           ) : (
-            <Text style={[s.selectText, !selectedTariff && s.selectPlaceholder]} numberOfLines={1}>
-              {selectedTariff
-                ? `${selectedTariff.origin} → ${selectedTariff.destination}`
-                : "Select route..."}
-            </Text>
+            <Feather name="map-pin" size={14} color={selectedTariff ? colors.pink : colors.mutedForeground} />
           )}
+          <Text style={[s.selectText, !selectedTariff && s.selectPlaceholder]} numberOfLines={1}>
+            {loadingTariffs
+              ? "Loading routes..."
+              : tariffs.length === 0
+              ? "No routes available"
+              : selectedTariff
+              ? `${selectedTariff.origin} → ${selectedTariff.destination}`
+              : "Select route..."}
+          </Text>
           {!loadingTariffs && tariffs.length > 0 && (
             <Feather name="chevron-down" size={16} color={colors.mutedForeground} />
           )}
@@ -455,7 +452,7 @@ export function ReportScreen() {
           <View style={s.fareHint}>
             <Feather name="info" size={12} color={colors.mutedForeground} />
             <Text style={s.fareHintText}>
-              Official regular fare:{" "}
+              {"Official regular fare: "}
               <Text style={s.fareHintValue}>₱{selectedTariff.fares.regular.toFixed(2)}</Text>
             </Text>
           </View>
@@ -484,20 +481,16 @@ export function ReportScreen() {
           onChangeText={setExtortedFare}
           keyboardType="decimal-pad"
         />
-        {selectedTariff && extortedFare && !isNaN(parseFloat(extortedFare)) && (
+        {selectedTariff && extortedFare && !isNaN(extorted) && extorted > 0 && (
           <View style={s.fareHint}>
             <Feather
-              name={parseFloat(extortedFare) > selectedTariff.fares.regular ? "alert-circle" : "check-circle"}
+              name={isOvercharge ? "alert-circle" : "check-circle"}
               size={12}
-              color={parseFloat(extortedFare) > selectedTariff.fares.regular ? colors.destructive : colors.success}
+              color={isOvercharge ? colors.destructive : colors.success}
             />
-            <Text style={[s.fareHintText, {
-              color: parseFloat(extortedFare) > selectedTariff.fares.regular
-                ? colors.destructive
-                : colors.success,
-            }]}>
-              {parseFloat(extortedFare) > selectedTariff.fares.regular
-                ? `₱${(parseFloat(extortedFare) - selectedTariff.fares.regular).toFixed(2)} above official fare`
+            <Text style={[s.fareHintText, { color: isOvercharge ? colors.destructive : colors.success }]}>
+              {isOvercharge
+                ? `₱${(extorted - selectedTariff.fares.regular).toFixed(2)} above official fare`
                 : "Amount is within the official fare"}
             </Text>
           </View>
@@ -561,8 +554,18 @@ export function ReportScreen() {
         />
       </ScrollView>
 
-      {showTariffPicker && (
-        <View style={s.pickerOverlay}>
+      {/* Route picker — uses Modal for correct web + native rendering */}
+      <Modal
+        visible={showTariffPicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowTariffPicker(false)}
+      >
+        <TouchableOpacity
+          style={s.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowTariffPicker(false)}
+        >
           <View style={s.pickerSheet}>
             <View style={s.pickerHeader}>
               <Text style={s.pickerTitle}>Select Route</Text>
@@ -574,7 +577,7 @@ export function ReportScreen() {
               {tariffs.map((t) => (
                 <TouchableOpacity
                   key={t.id}
-                  style={s.pickerItem}
+                  style={[s.pickerItem, selectedTariff?.id === t.id && { backgroundColor: colors.pinkMuted }]}
                   onPress={() => {
                     setSelectedTariff(t);
                     setShowTariffPicker(false);
@@ -582,16 +585,18 @@ export function ReportScreen() {
                   }}
                   activeOpacity={0.75}
                 >
-                  <Text style={s.pickerItemText}>{t.origin} → {t.destination}</Text>
+                  <Text style={[s.pickerItemText, selectedTariff?.id === t.id && { color: colors.pink, fontFamily: "Inter_500Medium" }]}>
+                    {t.origin} → {t.destination}
+                  </Text>
                   <Text style={s.pickerItemFare}>
-                    ₱{t.fares.regular} regular · {t.distance_km} km
+                    {`₱${t.fares.regular} regular · ${t.distance_km} km`}
                   </Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
           </View>
-        </View>
-      )}
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
