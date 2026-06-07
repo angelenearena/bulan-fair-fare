@@ -60,25 +60,39 @@ export function HomeScreen() {
     loadTariffs();
   }
 
-  // Derived fare calculator data
-  const origins = useMemo(() => {
-    const set = new Set(tariffs.map((t) => t.origin));
+  // Derived fare calculator data — extract ALL unique locations from both origin and destination
+  const allLocations = useMemo(() => {
+    const set = new Set<string>();
+    tariffs.forEach((t) => {
+      set.add(t.origin);
+      set.add(t.destination);
+    });
     return [...set].sort();
   }, [tariffs]);
 
+  // When origin is chosen, show every location reachable in EITHER direction
   const destinations = useMemo(() => {
     if (!selectedOrigin) return [];
-    const set = new Set(
-      tariffs.filter((t) => t.origin === selectedOrigin).map((t) => t.destination)
-    );
+    const set = new Set<string>();
+    tariffs.forEach((t) => {
+      if (t.origin === selectedOrigin) set.add(t.destination);
+      if (t.destination === selectedOrigin) set.add(t.origin);
+    });
     return [...set].sort();
   }, [tariffs, selectedOrigin]);
 
+  // Find the matching tariff in EITHER direction
   const matchedTariff = useMemo(() => {
     if (!selectedOrigin || !selectedDest) return null;
-    return tariffs.find(
-      (t) => t.origin === selectedOrigin && t.destination === selectedDest
-    ) ?? null;
+    return (
+      tariffs.find(
+        (t) => t.origin === selectedOrigin && t.destination === selectedDest
+      ) ??
+      tariffs.find(
+        (t) => t.destination === selectedOrigin && t.origin === selectedDest
+      ) ??
+      null
+    );
   }, [tariffs, selectedOrigin, selectedDest]);
 
   function handleSelectOrigin(origin: string) {
@@ -523,15 +537,15 @@ export function HomeScreen() {
               </TouchableOpacity>
             </View>
             <ScrollView showsVerticalScrollIndicator={false}>
-              {origins.map((origin) => (
+              {allLocations.map((location) => (
                 <TouchableOpacity
-                  key={origin}
-                  style={[s.pickerItem, selectedOrigin === origin && { backgroundColor: colors.pinkMuted }]}
-                  onPress={() => handleSelectOrigin(origin)}
+                  key={location}
+                  style={[s.pickerItem, selectedOrigin === location && { backgroundColor: colors.pinkMuted }]}
+                  onPress={() => handleSelectOrigin(location)}
                   activeOpacity={0.75}
                 >
-                  <Text style={[s.pickerItemText, selectedOrigin === origin && { color: colors.pink, fontFamily: "Inter_500Medium" }]}>
-                    {origin}
+                  <Text style={[s.pickerItemText, selectedOrigin === location && { color: colors.pink, fontFamily: "Inter_500Medium" }]}>
+                    {location}
                   </Text>
                 </TouchableOpacity>
               ))}

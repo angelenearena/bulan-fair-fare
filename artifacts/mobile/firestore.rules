@@ -34,5 +34,12 @@ service cloud.firestore {
       );
       allow delete: if false;
     }
+
+    // Push notification tokens — any authenticated user can read (needed to find admin tokens)
+    // Only the token owner can write their own token
+    match /notification_tokens/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
   }
 }

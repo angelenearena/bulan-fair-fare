@@ -1,5 +1,6 @@
 import React, { createContext, useContext, ReactNode } from "react";
 import { useAuth } from "../hooks/useAuth";
+import { useNotifications } from "../hooks/useNotifications";
 import { AppUser, UserRole } from "../types";
 
 interface AuthContextValue {
@@ -17,6 +18,9 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { user, loading, signIn, register, signOut } = useAuth();
+
+  // Register Expo push token whenever user logs in/out
+  useNotifications(user);
 
   const isGuest = !user;
   const isCommuter = user?.role === "commuter";

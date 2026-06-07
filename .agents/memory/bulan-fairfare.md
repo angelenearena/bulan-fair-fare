@@ -57,4 +57,17 @@ Firestore without `evidence_url`. Alert informs user if photo was dropped.
 
 ## Home screen fare calculator
 "Quick Fare Lookup" collapsible card added above route list. Uses existing loaded tariffs state (no extra
-Firestore reads). Origin → filtered destination → shows all 4 fares + "View Full Breakdown" button.
+Firestore reads). Origin picker uses ALL unique locations from both `origin` AND `destination` fields.
+Destination picker filters to reachable locations in EITHER direction. Tariff match searches both directions.
+
+## Push notifications architecture (no Cloud Functions, no billing)
+- `notification_tokens/{userId}` Firestore collection — token owner can write; any auth user can read
+- Mobile registers Expo push token on login via `hooks/useNotifications.ts` → `services/notifications.ts`
+- On native only (Platform.OS !== "web"); gracefully no-ops on web
+- On report submit: `notifyAdminsOfReport()` reads admin tokens from Firestore → calls Expo Push API directly
+- Expo Push API: `POST https://exp.host/--/api/v2/push/send` — no auth required, just the push token
+- Package: `expo-notifications ~0.32.17` (SDK 54 compatible via `pnpm exec expo install`)
+- DO NOT use `pnpm add expo-notifications` — it installs SDK 56 version which crashes Metro
+
+**Why:** Cloud Functions require Firebase Blaze plan. Direct client→Expo Push API approach works on free plan.
+Push tokens are not true secrets (worst case: spam), so reading them for notification dispatch is acceptable.

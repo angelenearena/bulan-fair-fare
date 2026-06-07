@@ -20,6 +20,7 @@ import { useAuthContext } from "../context/AuthContext";
 import { getTariffs } from "../services/tariffs";
 import { createReport } from "../services/reports";
 import { uploadBase64Image } from "../services/storage";
+import { notifyAdminsOfReport } from "../services/notifications";
 import { Tariff } from "../types";
 import { Button } from "../components/Button";
 
@@ -164,6 +165,9 @@ export function ReportScreen() {
         incident_date: new Date(),
         ...(evidence_url ? { evidence_url } : {}),
       });
+
+      // Notify admins — non-blocking, silent fail
+      notifyAdminsOfReport(selectedTariff.origin, selectedTariff.destination, bodyNumber.trim());
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert(
