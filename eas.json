@@ -1,20 +1,12 @@
 {
   "cli": {
-    "version": ">= 10.0.0"
+    "appDirectory": "artifacts/mobile"
   },
   "build": {
-    "development": {
-      "developmentClient": true,
-      "distribution": "internal"
-    },
-    "preview": {
+    "production": {
       "android": {
-        "buildType": "apk"
-      },
-      "env": {
-        "NPM_CONFIG_LEGACY_PEER_DEPS": "true"
+        "buildType": "app-bundle"
       }
-    },
-    "production": {}
+    }
   }
 }
