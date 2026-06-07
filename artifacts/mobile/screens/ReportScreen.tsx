@@ -9,6 +9,7 @@ import {
   Alert,
   Platform,
   Image,
+  ActivityIndicator,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -31,6 +32,7 @@ export function ReportScreen() {
   const { user, isGuest } = useAuthContext();
 
   const [tariffs, setTariffs] = useState<Tariff[]>([]);
+  const [loadingTariffs, setLoadingTariffs] = useState(true);
   const [selectedTariff, setSelectedTariff] = useState<Tariff | null>(null);
   const [bodyNumber, setBodyNumber] = useState("");
   const [extortedFare, setExtortedFare] = useState("");
@@ -42,7 +44,11 @@ export function ReportScreen() {
   const [showTariffPicker, setShowTariffPicker] = useState(false);
 
   useEffect(() => {
-    getTariffs().then(setTariffs).catch(() => null);
+    setLoadingTariffs(true);
+    getTariffs()
+      .then(setTariffs)
+      .catch(() => null)
+      .finally(() => setLoadingTariffs(false));
   }, []);
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
@@ -106,7 +112,10 @@ export function ReportScreen() {
   }
 
   async function handleSubmit() {
-    if (!user) return;
+    if (!user) {
+      Alert.alert("Sign In Required", "Please sign in to submit a report.");
+      return;
+    }
 
     if (!selectedTariff) {
       Alert.alert("Select Route", "Please select the route where overcharging occurred.");
@@ -418,13 +427,29 @@ export function ReportScreen() {
         <Text style={[s.label, { marginTop: 0 }]}>
           Route <Text style={s.required}>*</Text>
         </Text>
-        <TouchableOpacity style={s.selectBtn} onPress={() => setShowTariffPicker(true)} activeOpacity={0.75}>
-          <Text style={[s.selectText, !selectedTariff && s.selectPlaceholder]} numberOfLines={1}>
-            {selectedTariff
-              ? `${selectedTariff.origin} → ${selectedTariff.destination}`
-              : "Select route..."}
-          </Text>
-          <Feather name="chevron-down" size={16} color={colors.mutedForeground} />
+        <TouchableOpacity
+          style={s.selectBtn}
+          onPress={() => { if (!loadingTariffs && tariffs.length > 0) setShowTariffPicker(true); }}
+          activeOpacity={0.75}
+          disabled={loadingTariffs || tariffs.length === 0}
+        >
+          {loadingTariffs ? (
+            <>
+              <ActivityIndicator size="small" color={colors.mutedForeground} style={{ marginRight: 8 }} />
+              <Text style={[s.selectText, s.selectPlaceholder]}>Loading routes...</Text>
+            </>
+          ) : tariffs.length === 0 ? (
+            <Text style={[s.selectText, s.selectPlaceholder]}>No routes available</Text>
+          ) : (
+            <Text style={[s.selectText, !selectedTariff && s.selectPlaceholder]} numberOfLines={1}>
+              {selectedTariff
+                ? `${selectedTariff.origin} → ${selectedTariff.destination}`
+                : "Select route..."}
+            </Text>
+          )}
+          {!loadingTariffs && tariffs.length > 0 && (
+            <Feather name="chevron-down" size={16} color={colors.mutedForeground} />
+          )}
         </TouchableOpacity>
         {selectedTariff && (
           <View style={s.fareHint}>

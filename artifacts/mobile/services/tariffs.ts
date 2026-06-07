@@ -29,12 +29,27 @@ export async function getTariffs(): Promise<Tariff[]> {
   try {
     const q = query(collection(db, COLLECTION), orderBy("origin"));
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(mapTariff);
+    if (!snapshot.empty) return snapshot.docs.map(mapTariff);
   } catch {
-    // Fallback: fetch without orderBy if index fails
-    const snapshot = await getDocs(collection(db, COLLECTION));
+    // orderBy failed — try without it
+  }
+
+  // Fallback: fetch without orderBy
+  const snapshot = await getDocs(collection(db, COLLECTION));
+  if (!snapshot.empty) {
     const tariffs = snapshot.docs.map(mapTariff);
     return tariffs.sort((a, b) => a.origin.localeCompare(b.origin));
+  }
+
+  // Collection is empty — auto-seed official routes on first run
+  try {
+    const { seedTariffs } = await import("./seedData");
+    await seedTariffs();
+    const seeded = await getDocs(collection(db, COLLECTION));
+    const tariffs = seeded.docs.map(mapTariff);
+    return tariffs.sort((a, b) => a.origin.localeCompare(b.origin));
+  } catch {
+    return [];
   }
 }
 

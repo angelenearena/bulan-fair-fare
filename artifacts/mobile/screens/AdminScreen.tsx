@@ -22,6 +22,7 @@ import { seedTariffs } from "../services/seedData";
 import { OverchargingReport, GlobalSettings, Tariff } from "../types";
 import { Button } from "../components/Button";
 import { ReportItemSkeleton } from "../components/LoadingSkeleton";
+import { useUnreadReports } from "../hooks/useUnreadReports";
 
 const STATUS_OPTIONS: OverchargingReport["status"][] = ["Pending", "Reviewed", "Resolved"];
 const STATUS_COLORS: Record<string, string> = {
@@ -37,6 +38,7 @@ export function AdminScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user, isAdmin } = useAuthContext();
+  const { unreadCount, markAllRead } = useUnreadReports();
 
   const [activeTab, setActiveTab] = useState<AdminTab>("reports");
   const [reports, setReports] = useState<OverchargingReport[]>([]);
@@ -63,7 +65,6 @@ export function AdminScreen() {
         setLoading(false);
       },
       () => {
-        // On error, stop loading so UI doesn't freeze
         setLoading(false);
       }
     );
@@ -79,6 +80,13 @@ export function AdminScreen() {
       .catch(() => null);
     return unsub;
   }, []);
+
+  // Mark reports as read when the reports tab is active
+  useEffect(() => {
+    if (activeTab === "reports") {
+      markAllRead();
+    }
+  }, [activeTab, markAllRead]);
 
   async function handleStatusChange(reportId: string, status: OverchargingReport["status"]) {
     try {
@@ -191,6 +199,28 @@ export function AdminScreen() {
       color: colors.pink,
       fontFamily: "Inter_600SemiBold",
       fontSize: 11,
+    },
+    bellBtn: {
+      width: 36, height: 36, borderRadius: 18,
+      backgroundColor: colors.card, alignItems: "center", justifyContent: "center",
+      borderWidth: 1, borderColor: colors.border,
+      position: "relative",
+    },
+    bellBadge: {
+      position: "absolute",
+      top: -4, right: -4,
+      backgroundColor: colors.pink,
+      borderRadius: 10,
+      minWidth: 18, height: 18,
+      alignItems: "center", justifyContent: "center",
+      paddingHorizontal: 3,
+      borderWidth: 2,
+      borderColor: colors.background,
+    },
+    bellBadgeText: {
+      color: "#ffffff",
+      fontFamily: "Inter_700Bold",
+      fontSize: 9,
     },
     divider: { height: 1, backgroundColor: colors.border },
     tabBar: {
@@ -348,6 +378,18 @@ export function AdminScreen() {
         <View style={s.adminBadge}>
           <Text style={s.adminBadgeText}>ADMIN</Text>
         </View>
+        <TouchableOpacity
+          style={s.bellBtn}
+          onPress={() => setActiveTab("reports")}
+          activeOpacity={0.75}
+        >
+          <Feather name="bell" size={20} color={unreadCount > 0 ? colors.pink : colors.mutedForeground} />
+          {unreadCount > 0 && (
+            <View style={s.bellBadge}>
+              <Text style={s.bellBadgeText}>{unreadCount > 99 ? "99+" : unreadCount}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
       </View>
       <View style={s.divider} />
 
